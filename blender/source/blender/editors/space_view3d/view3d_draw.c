@@ -2451,12 +2451,21 @@ static void gpu_update_lamps_shadows(Scene *scene, View3D *v3d)
 	for (shadow = shadows.first; shadow; shadow = shadow->next) {
 		/* this needs to be done better .. */
 		float viewmat[4][4], winmat[4][4];
+		float caminv[4][4];
 		int viewport[4];
 		int drawtype, lay, flag2 = v3d->flag2;
 		int passes = GPU_lamp_shadow_passes(shadow->lamp);
 		unsigned int i;
 		ARegion ar = {NULL};
 		RegionView3D rv3d = {{{0}}};
+		CameraParams params;
+
+		BKE_camera_params_init(&params);
+		BKE_camera_params_from_object(&params, v3d->camera);
+		BKE_camera_params_compute_viewplane(&params, scene->r.xsch, scene->r.ysch, scene->r.xasp, scene->r.yasp);
+		BKE_camera_params_compute_matrix(&params);
+		invert_m4_m4(caminv, params.winmat);
+		mul_m4_m4m4(caminv, v3d->camera->obmat, caminv);
 		
 		drawtype = v3d->drawtype;
 		lay = v3d->lay;
@@ -2467,7 +2476,7 @@ static void gpu_update_lamps_shadows(Scene *scene, View3D *v3d)
 		v3d->flag2 |= V3D_RENDER_OVERRIDE | V3D_RENDER_SHADOW;
 		
 		for (i = 0; i < passes; i++) {
-			GPU_lamp_shadow_buffer_bind(shadow->lamp, viewmat, viewport, winmat, i);
+			GPU_lamp_shadow_buffer_bind(shadow->lamp, caminv, viewmat, viewport, winmat, i);
 
 			ar.regiondata = &rv3d;
 			ar.regiontype = RGN_TYPE_WINDOW;

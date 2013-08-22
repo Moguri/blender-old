@@ -1193,11 +1193,16 @@ void KX_KetsjiEngine::RenderShadowBuffers(KX_Scene *scene)
 			drawmode = m_rasterizer->GetDrawingMode();
 			m_rasterizer->SetDrawingMode(RAS_IRasterizer::KX_SHADOW);
 
+			/* get camera inverse transform */
+			KX_Camera *scene_cam = scene->GetActiveCamera();
+			MT_Matrix4x4 caminv = scene_cam->GetProjectionMatrix().inverse();
+			caminv = scene_cam->GetModelviewMatrix().inverse() * caminv;
+
 			int passes = light->GetShadowBufferCount();
 
 			for (j = 0; j < passes; j++) {
 				/* binds framebuffer object, sets up camera .. */
-				light->BindShadowBuffer(m_rasterizer, m_canvas, cam, camtrans, j);
+				light->BindShadowBuffer(m_rasterizer, caminv, m_canvas, cam, camtrans, j);
 
 				/* update scene */
 				scene->CalculateVisibleMeshes(m_rasterizer, cam, light->GetShadowLayer());

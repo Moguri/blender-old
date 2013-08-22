@@ -257,15 +257,17 @@ int KX_LightObject::GetShadowBufferCount()
 	return (this->m_lightobj.m_type == RAS_LightObject::LIGHT_NORMAL) ? 6 : 1;
 }
 
-void KX_LightObject::BindShadowBuffer(RAS_IRasterizer *ras, RAS_ICanvas *canvas, KX_Camera *cam, MT_Transform& camtrans, int pass)
+void KX_LightObject::BindShadowBuffer(RAS_IRasterizer *ras, MT_Matrix4x4 &caminv, RAS_ICanvas *canvas, KX_Camera *cam, MT_Transform& camtrans, int pass)
 {
 	GPULamp *lamp;
 	float viewmat[4][4], winmat[4][4];
 	int viewport[4];
+	float caminvf[4][4];
 
 	/* bind framebuffer */
 	lamp = GetGPULamp();
-	GPU_lamp_shadow_buffer_bind(lamp, viewmat, viewport, winmat, pass);
+	caminv.getValue(caminvf[0]);
+	GPU_lamp_shadow_buffer_bind(lamp, caminvf, viewmat, viewport, winmat, pass);
 
 	if (GPU_lamp_shadow_buffer_type(lamp) == LA_SHADMAP_VARIANCE)
 		ras->SetUsingOverrideShader(true);

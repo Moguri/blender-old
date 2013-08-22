@@ -236,7 +236,7 @@ void GPU_lamp_free(struct Object *ob);
 
 int GPU_lamp_has_shadow_buffer(GPULamp *lamp);
 void GPU_lamp_update_buffer_mats(GPULamp *lamp);
-void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float viewmat[4][4], int viewport[4], float winmat[4][4], int pass);
+void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewmat[4][4], int viewport[4], float winmat[4][4], int pass);
 void GPU_lamp_shadow_buffer_unbind(GPULamp *lamp, int pass);
 int GPU_lamp_shadow_buffer_type(GPULamp *lamp);
 

@@ -1727,7 +1727,7 @@ static void gpu_lamp_from_blender(Scene *scene, Object *ob, Object *par, Lamp *l
 
 	/* makeshadowbuf */
 	if (lamp->type == LA_SUN) {
-		wsize = la->shadow_frustum_size;
+		wsize = 1.0;
 		orthographic_m4(lamp->winmat, -wsize, wsize, -wsize, wsize, lamp->d, lamp->clipend);
 	}
 	else {
@@ -1928,7 +1928,7 @@ void GPU_lamp_update_buffer_mats(GPULamp *lamp)
 	mul_m4_m4m4(lamp->persmat, rangemat, persmat);
 }
 
-void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float viewmat[4][4], int viewport[4], float winmat[4][4], int pass)
+void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewmat[4][4], int viewport[4], float winmat[4][4], int pass)
 {
 	int width = GPU_texture_opengl_width(lamp->tex);
 	int height = GPU_texture_opengl_height(lamp->tex);
@@ -1966,17 +1966,107 @@ void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float viewmat[4][4], int viewpor
 		glScissor(x, y, width, height);
 
 		lookat_m4(viewmat, lamp->co[0], lamp->co[1], lamp->co[2], px, py, pz, twist);
+		copy_m4_m4(winmat, lamp->winmat);
+	}
+	else if (lamp->type == LA_SUN) {
+
+		float corner[4];
+		int i;
+		float z = 1;
+		float n = 1.0;
+		float f = 1.000;
+		int pass = 1;
+		int slices = 3;
+		float sx, sy, sz, ox, oy, oz;
+		float maxx = - MAXFLOAT, maxy = -MAXFLOAT, maxz = -MAXFLOAT;
+		float minx = MAXFLOAT, miny = MAXFLOAT, minz = MAXFLOAT;
+		float C[4][4] = MAT4_UNITY;
+		float P[4][4];
+		float rangemat[4][4], persmat[4][4];
+
+		float clog, cuni;
+
+		cuni = (float)pass/slices;
+		clog = pow(0.5f, slices-pass);
+
+		z = 1.0;
+		for (i = 0; i < 8; i++) {
+			corner[0] = (i&2)?-1:1;
+			corner[1] = (i&1)?-1:1;
+			corner[2] = (i&4)?-1:1;
+			corner[3] = 1.0;
+
+			mul_m4_v4(caminv, corner);
+			mul_v4_fl(corner, 1.0 / corner[3]);
+			mul_m4_v4(lamp->persmat, corner);
+
+			if (corner[0] > maxx)
+				maxx = corner[0];
+			if (corner[0] < minx)
+				minx = corner[0];
+
+			if (corner[1] > maxy)
+				maxy = corner[1];
+			if (corner[1] < miny)
+				miny = corner[1];
+
+			if (corner[2] > maxz)
+				maxz = corner[2];
+			if (corner[2] < minz)
+				minz = corner[2];
+		}
+
+		minz = 0.0f;
+
+		sx = 1.0f / (maxx - minx);
+		sy = 1.0f / (maxy - miny);
+		sz = 0.5f / maxz;
+		ox = -1.0 * (maxx + minx) * sx;
+		oy = -1.0 * (maxy + miny) * sy;
+		C[0][0] = sx;
+		C[1][1] = sy;
+		C[2][2] = sz;
+		C[3][0] = ox;
+		C[3][1] = oy;
+
+		//copy_m4_m4(P, lamp->winmat);
+		//P[0][0] = 1.0;
+		//P[1][1] = 1.0;
+		//mul_m4_m4m4(lamp->persmat, C, lamp->persmat);
+
+		mul_m4_m4m4(winmat, C, lamp->winmat);
+
+		/* makeshadowbuf */
+		mul_m4_m4m4(persmat, winmat, lamp->viewmat);
+
+		/* opengl depth buffer is range 0.0..1.0 instead of -1.0..1.0 in blender */
+		unit_m4(rangemat);
+		rangemat[0][0] = 0.5f;
+		rangemat[1][1] = 0.5f;
+		rangemat[2][2] = 0.5f;
+		rangemat[3][0] = 0.5f;
+		rangemat[3][1] = 0.5f;
+		rangemat[3][2] = 0.5f;
+
+		mul_m4_m4m4(lamp->persmat, rangemat, persmat);
+		copy_m4_m4(viewmat, lamp->viewmat);
+		viewport[0] = viewport[1] = 0;
+		viewport[2] = viewport[3] = lamp->size;
+
+		glDisable(GL_SCISSOR_TEST);
+		GPU_framebuffer_texture_bind(lamp->fb, lamp->tex, width, height);
 	}
 	else {
 		glDisable(GL_SCISSOR_TEST);
 		GPU_framebuffer_texture_bind(lamp->fb, lamp->tex, width, height);
 		copy_m4_m4(viewmat, lamp->viewmat);
+		copy_m4_m4(winmat, lamp->winmat);
 		viewport[0] = viewport[1] = 0;
 		viewport[2] = viewport[3] = lamp->size;
 	}
+
 	if (lamp->la->shadowmap_type == LA_SHADMAP_VARIANCE)
 		GPU_shader_bind(GPU_shader_get_builtin_shader(GPU_SHADER_VSM_STORE));
-	copy_m4_m4(winmat, lamp->winmat);
 }
 
 void GPU_lamp_shadow_buffer_unbind(GPULamp *lamp, int pass)

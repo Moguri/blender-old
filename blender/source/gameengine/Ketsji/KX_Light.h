@@ -67,7 +67,7 @@ public:
 	bool HasShadowBuffer();
 	int GetShadowLayer();
 	int GetShadowBufferCount();
-	void BindShadowBuffer(class RAS_IRasterizer *ras, class RAS_ICanvas *canvas, class KX_Camera *cam, class MT_Transform& camtrans, int pass);
+	void BindShadowBuffer(class RAS_IRasterizer *ras, MT_Matrix4x4 &caminv, class RAS_ICanvas *canvas, class KX_Camera *cam, class MT_Transform& camtrans, int pass);
 	void UnbindShadowBuffer(class RAS_IRasterizer *ras, int pass);
 	struct Image *GetTextureImage(short texslot);
 	void Update();
