@@ -73,6 +73,7 @@ typedef enum GPUType {
 	GPU_MAT4 = 16,
 	GPU_TEX2D = 1002,
 	GPU_SHADOW2D = 1003,
+	GPU_TEXCUBE = 1004,
 	GPU_ATTRIB = 3001
 } GPUType;
 
@@ -235,14 +236,15 @@ void GPU_lamp_free(struct Object *ob);
 
 int GPU_lamp_has_shadow_buffer(GPULamp *lamp);
 void GPU_lamp_update_buffer_mats(GPULamp *lamp);
-void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float viewmat[4][4], int *winsize, float winmat[4][4]);
-void GPU_lamp_shadow_buffer_unbind(GPULamp *lamp);
+void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float viewmat[4][4], int viewport[4], float winmat[4][4], int pass);
+void GPU_lamp_shadow_buffer_unbind(GPULamp *lamp, int pass);
 int GPU_lamp_shadow_buffer_type(GPULamp *lamp);
 
 void GPU_lamp_update(GPULamp *lamp, int lay, int hide, float obmat[4][4]);
 void GPU_lamp_update_colors(GPULamp *lamp, float r, float g, float b, float energy);
 void GPU_lamp_update_distance(GPULamp *lamp, float distance, float att1, float att2);
 void GPU_lamp_update_spot(GPULamp *lamp, float spotsize, float spotblend);
+int GPU_lamp_shadow_passes(GPULamp *lamp);
 int GPU_lamp_shadow_layer(GPULamp *lamp);
 
 #ifdef __cplusplus

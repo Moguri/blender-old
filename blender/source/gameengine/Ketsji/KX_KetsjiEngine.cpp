@@ -1170,7 +1170,7 @@ void KX_KetsjiEngine::GetSceneViewport(KX_Scene *scene, KX_Camera* cam, RAS_Rect
 void KX_KetsjiEngine::RenderShadowBuffers(KX_Scene *scene)
 {
 	CListValue *lightlist = scene->GetLightList();
-	int i, drawmode;
+	int i, j, drawmode;
 
 	m_rendertools->SetAuxilaryClientInfo(scene);
 
@@ -1193,18 +1193,23 @@ void KX_KetsjiEngine::RenderShadowBuffers(KX_Scene *scene)
 			drawmode = m_rasterizer->GetDrawingMode();
 			m_rasterizer->SetDrawingMode(RAS_IRasterizer::KX_SHADOW);
 
-			/* binds framebuffer object, sets up camera .. */
-			light->BindShadowBuffer(m_rasterizer, m_canvas, cam, camtrans);
+			int passes = light->GetShadowBufferCount();
 
-			/* update scene */
-			scene->CalculateVisibleMeshes(m_rasterizer, cam, light->GetShadowLayer());
+			for (j = 0; j < passes; j++) {
+				/* binds framebuffer object, sets up camera .. */
+				light->BindShadowBuffer(m_rasterizer, m_canvas, cam, camtrans, j);
 
-			/* render */
-			m_rasterizer->ClearDepthBuffer();
-			scene->RenderBuckets(camtrans, m_rasterizer, m_rendertools);
+				/* update scene */
+				scene->CalculateVisibleMeshes(m_rasterizer, cam, light->GetShadowLayer());
+
+				/* render */
+				m_rasterizer->ClearDepthBuffer();
+				scene->RenderBuckets(camtrans, m_rasterizer, m_rendertools);
+
+				light->UnbindShadowBuffer(m_rasterizer, j);
+			}
 
 			/* unbind framebuffer object, restore drawmode, free camera */
-			light->UnbindShadowBuffer(m_rasterizer);
 			m_rasterizer->SetDrawingMode(drawmode);
 			cam->Release();
 		}

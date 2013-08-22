@@ -252,21 +252,26 @@ int KX_LightObject::GetShadowLayer()
 		return 0;
 }
 
-void KX_LightObject::BindShadowBuffer(RAS_IRasterizer *ras, RAS_ICanvas *canvas, KX_Camera *cam, MT_Transform& camtrans)
+int KX_LightObject::GetShadowBufferCount()
+{
+	return (this->m_lightobj.m_type == RAS_LightObject::LIGHT_NORMAL) ? 6 : 1;
+}
+
+void KX_LightObject::BindShadowBuffer(RAS_IRasterizer *ras, RAS_ICanvas *canvas, KX_Camera *cam, MT_Transform& camtrans, int pass)
 {
 	GPULamp *lamp;
 	float viewmat[4][4], winmat[4][4];
-	int winsize;
+	int viewport[4];
 
 	/* bind framebuffer */
 	lamp = GetGPULamp();
-	GPU_lamp_shadow_buffer_bind(lamp, viewmat, &winsize, winmat);
+	GPU_lamp_shadow_buffer_bind(lamp, viewmat, viewport, winmat, pass);
 
 	if (GPU_lamp_shadow_buffer_type(lamp) == LA_SHADMAP_VARIANCE)
 		ras->SetUsingOverrideShader(true);
 
 	/* GPU_lamp_shadow_buffer_bind() changes the viewport, so update the canvas */
-	canvas->UpdateViewPort(0, 0, winsize, winsize);
+	canvas->UpdateViewPort(viewport[0], viewport[1], viewport[2], viewport[3]);
 
 	/* setup camera transformation */
 	MT_Matrix4x4 modelviewmat((float*)viewmat);
@@ -291,10 +296,10 @@ void KX_LightObject::BindShadowBuffer(RAS_IRasterizer *ras, RAS_ICanvas *canvas,
 	ras->SetStereoMode(stereomode);
 }
 
-void KX_LightObject::UnbindShadowBuffer(RAS_IRasterizer *ras)
+void KX_LightObject::UnbindShadowBuffer(RAS_IRasterizer *ras, int pass)
 {
 	GPULamp *lamp = GetGPULamp();
-	GPU_lamp_shadow_buffer_unbind(lamp);
+	GPU_lamp_shadow_buffer_unbind(lamp, pass);
 
 	if (GPU_lamp_shadow_buffer_type(lamp) == LA_SHADMAP_VARIANCE)
 		ras->SetUsingOverrideShader(false);

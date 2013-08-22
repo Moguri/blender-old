@@ -1906,6 +1906,39 @@ void test_shadowbuf(vec3 rco, sampler2DShadow shadowmap, mat4 shadowpersmat, flo
 	}
 }
 
+void test_shadowbuf_cube(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, sampler2DShadow shadowmap, float near, float far, float shadowbias, out float result)
+{
+	vec4 light_dir = invview * vec4(lv, 0.0);
+
+	vec3 lookup;
+	lookup.xy = textureCube(indirectionmap, light_dir.xyz).rg;
+	light_dir = abs(light_dir*ldist);
+	float MA = max(max(light_dir.x, light_dir.y), light_dir.z);
+	lookup.z = (-1.0/MA) * ((far*near)/(far-near)) + far/(far-near);
+	lookup.z -= shadowbias * 10.0;
+
+	result = shadow2D(shadowmap, lookup).r;
+}
+
+float vsm_result(vec2 moments, float dist, float shadowbias, float bleedbias)
+{
+	float p = 0.0;
+
+	if(dist <= moments.x)
+		p = 1.0;
+
+	float variance = moments.y - (moments.x*moments.x);
+	variance = max(variance, shadowbias/10.0);
+
+	float d = moments.x - dist;
+	float p_max = variance / (variance + d*d);
+
+	// Now reduce light-bleeding by removing the [0, x] tail and linearly rescaling (x, 1]
+	p_max = clamp((p_max-bleedbias)/(1.0-bleedbias), 0.0, 1.0);
+
+	return max(p, p_max);
+}
+
 void test_shadowbuf_vsm(vec3 rco, sampler2D shadowmap, mat4 shadowpersmat, float shadowbias, float bleedbias, float inp, out float result)
 {
 	if(inp <= 0.0) {
@@ -1916,26 +1949,26 @@ void test_shadowbuf_vsm(vec3 rco, sampler2D shadowmap, mat4 shadowpersmat, float
 		if (co.w > 0.0 && co.x > 0.0 && co.x/co.w < 1.0 && co.y > 0.0 && co.y/co.w < 1.0) {
 			vec2 moments = texture2DProj(shadowmap, co).rg;
 			float dist = co.z/co.w;
-			float p = 0.0;
-			
-			if(dist <= moments.x)
-				p = 1.0;
-
-			float variance = moments.y - (moments.x*moments.x);
-			variance = max(variance, shadowbias/10.0);
-
-			float d = moments.x - dist;
-			float p_max = variance / (variance + d*d);
-
-			// Now reduce light-bleeding by removing the [0, x] tail and linearly rescaling (x, 1]
-			p_max = clamp((p_max-bleedbias)/(1.0-bleedbias), 0.0, 1.0);
-
-			result = max(p, p_max);
+			result = vsm_result(moments, dist, shadowbias, bleedbias);
 		}
 		else {
 			result = 1.0;
 		}
 	}
+}
+
+void test_shadowbuf_vsm_cube(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, sampler2D shadowmap, float near, float far, float shadowbias, float bleedbias, out float result)
+{
+	vec4 light_dir = invview * vec4(lv, 0.0);
+
+	vec3 lookup;
+	lookup.xy = textureCube(indirectionmap, light_dir.xyz).rg;
+	light_dir = abs(light_dir*ldist);
+	float MA = max(max(light_dir.x, light_dir.y), light_dir.z);
+	lookup.z = (-1.0/MA) * ((far*near)/(far-near)) + far/(far-near) - 0.1;
+
+	vec2 moments = texture2D(shadowmap, lookup.xy).rg;
+	result = vsm_result(moments, lookup.z, shadowbias, bleedbias);
 }
 
 void shade_light_texture(vec3 rco, sampler2D cookie, mat4 shadowpersmat, out vec4 result)

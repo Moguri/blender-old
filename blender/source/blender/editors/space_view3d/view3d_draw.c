@@ -2451,7 +2451,10 @@ static void gpu_update_lamps_shadows(Scene *scene, View3D *v3d)
 	for (shadow = shadows.first; shadow; shadow = shadow->next) {
 		/* this needs to be done better .. */
 		float viewmat[4][4], winmat[4][4];
-		int drawtype, lay, winsize, flag2 = v3d->flag2;
+		int viewport[4];
+		int drawtype, lay, flag2 = v3d->flag2;
+		int passes = GPU_lamp_shadow_passes(shadow->lamp);
+		unsigned int i;
 		ARegion ar = {NULL};
 		RegionView3D rv3d = {{{0}}};
 		
@@ -2463,20 +2466,22 @@ static void gpu_update_lamps_shadows(Scene *scene, View3D *v3d)
 		v3d->flag2 &= ~V3D_SOLID_TEX;
 		v3d->flag2 |= V3D_RENDER_OVERRIDE | V3D_RENDER_SHADOW;
 		
-		GPU_lamp_shadow_buffer_bind(shadow->lamp, viewmat, &winsize, winmat);
+		for (i = 0; i < passes; i++) {
+			GPU_lamp_shadow_buffer_bind(shadow->lamp, viewmat, viewport, winmat, i);
 
-		ar.regiondata = &rv3d;
-		ar.regiontype = RGN_TYPE_WINDOW;
-		rv3d.persp = RV3D_CAMOB;
-		copy_m4_m4(rv3d.winmat, winmat);
-		copy_m4_m4(rv3d.viewmat, viewmat);
-		invert_m4_m4(rv3d.viewinv, rv3d.viewmat);
-		mul_m4_m4m4(rv3d.persmat, rv3d.winmat, rv3d.viewmat);
-		invert_m4_m4(rv3d.persinv, rv3d.viewinv);
+			ar.regiondata = &rv3d;
+			ar.regiontype = RGN_TYPE_WINDOW;
+			rv3d.persp = RV3D_CAMOB;
+			copy_m4_m4(rv3d.winmat, winmat);
+			copy_m4_m4(rv3d.viewmat, viewmat);
+			invert_m4_m4(rv3d.viewinv, rv3d.viewmat);
+			mul_m4_m4m4(rv3d.persmat, rv3d.winmat, rv3d.viewmat);
+			invert_m4_m4(rv3d.persinv, rv3d.viewinv);
 
-		/* no need to call ED_view3d_draw_offscreen_init since shadow buffers were already updated */
-		ED_view3d_draw_offscreen(scene, v3d, &ar, winsize, winsize, viewmat, winmat, false, false);
-		GPU_lamp_shadow_buffer_unbind(shadow->lamp);
+			/* no need to call ED_view3d_draw_offscreen_init since shadow buffers were already updated */
+			ED_view3d_draw_offscreen(scene, v3d, &ar, viewport[2], viewport[3], viewmat, winmat, false, false);
+			GPU_lamp_shadow_buffer_unbind(shadow->lamp, i);
+		}
 		
 		v3d->drawtype = drawtype;
 		v3d->lay = lay;

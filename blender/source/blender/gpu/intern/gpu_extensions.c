@@ -677,19 +677,83 @@ GPUTexture *GPU_texture_create_depth(int w, int h, char err_out[256])
 /**
  * A shadow map for VSM needs two components (depth and depth^2)
  */
-GPUTexture *GPU_texture_create_vsm_shadow_map(int size, char err_out[256])
+GPUTexture *GPU_texture_create_vsm_shadow_map(int w, int h, char err_out[256])
 {
-	GPUTexture *tex = GPU_texture_create_nD(size, size, 2, NULL, 0, err_out);
+	GPUTexture *tex = GPU_texture_create_nD(w, h, 2, NULL, 0, err_out);
 
 	if (tex) {
 		/* Now we tweak some of the settings */
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, size, size, 0, GL_RG, GL_FLOAT, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, w, h, 0, GL_RG, GL_FLOAT, NULL);
 
 		GPU_texture_unbind(tex);
 	}
 
+	return tex;
+}
+
+GPUTexture *GPU_texture_create_indirection_cubemap(int resolution, char err_out[256])
+{
+	GPUTexture *tex;
+	int map_res = resolution/16;
+	int face, x, y;
+	unsigned short *data = MEM_mallocN(sizeof(unsigned short) * 2 * map_res * map_res, "Indirection Cubemap Data");
+	float xstep, ystep, xstart, ystart, xrange, yrange;
+
+	tex = MEM_callocN(sizeof(GPUTexture), "GPUTexture");
+	tex->w = map_res;
+	tex->h = map_res;
+	tex->number = -1;
+	tex->refcount = 1;
+	tex->target = GL_TEXTURE_CUBE_MAP;
+	tex->depth = 0;
+
+	glGenTextures(1, &tex->bindcode);
+
+	if (!tex->bindcode) {
+		if (err_out) {
+			BLI_snprintf(err_out, 256, "GPUTexture: texture create failed: %d",
+				(int)glGetError());
+		}
+		else {
+			fprintf(stderr, "GPUTexture: texture create failed: %d\n",
+				(int)glGetError());
+		}
+		GPU_texture_free(tex);
+		return NULL;
+	}
+
+	if (!GPU_non_power_of_two_support()) {
+		tex->w = power_of_2_max_i(tex->w);
+		tex->h = power_of_2_max_i(tex->h);
+	}
+
+	tex->number = 0;
+	glBindTexture(tex->target, tex->bindcode);
+
+	xstep = 1.0f / (3.0f * (map_res-1));
+	ystep = 1.0f / (2.0f * (map_res-1));
+	xrange = 1.0f/3.0f;
+	yrange = 1.0f/2.0f;
+	for (face = 0; face < 6; face++) {
+		xstart = (face / 2) * xrange;
+		ystart = (face & 1) ? yrange : 0.0f;
+		for (y = 0; y < tex->h; y++) {
+			for (x = 0; x < tex->w; x++) {
+				data[(y*tex->w + x) * 2 + 0] = (x * xstep + xstart) * USHRT_MAX;
+				data[(y*tex->w + x) * 2 + 1] = (y * ystep + ystart) * USHRT_MAX;
+			}
+		}
+
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, GL_RG16, map_res, map_res, 0, GL_RG, GL_UNSIGNED_SHORT, data);
+		glTexParameteri(tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	}
+
+	MEM_freeN(data);
 	return tex;
 }
 

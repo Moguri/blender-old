@@ -159,6 +159,8 @@ static void gpu_parse_functions_string(GHash *hash, char *code)
 				type= GPU_SHADOW2D;
 			if (!type && gpu_str_prefix(code, "sampler2D"))
 				type= GPU_TEX2D;
+			if (!type && gpu_str_prefix(code, "samplerCube"))
+				type= GPU_TEXCUBE;
 
 			if (type) {
 				/* add paramater */
@@ -473,10 +475,14 @@ static int codegen_print_uniforms_functions(DynStr *ds, ListBase *nodes)
 		for (input=node->inputs.first; input; input=input->next) {
 			if ((input->source == GPU_SOURCE_TEX) || (input->source == GPU_SOURCE_TEX_PIXEL)) {
 				/* create exactly one sampler for each texture */
-				if (codegen_input_has_texture(input) && input->bindtex)
-					BLI_dynstr_appendf(ds, "uniform %s samp%d;\n",
-						(input->textype == GPU_TEX2D) ? "sampler2D" : "sampler2DShadow",
-						input->texid);
+				if (codegen_input_has_texture(input) && input->bindtex) {
+					if (input->textype == GPU_SHADOW2D)
+						BLI_dynstr_appendf(ds, "uniform %s samp%d;\n", "sampler2DShadow", input->texid);
+					else if (input->textype == GPU_TEXCUBE)
+						BLI_dynstr_appendf(ds, "uniform %s samp%d;\n", "samplerCube", input->texid);
+					else
+						BLI_dynstr_appendf(ds, "uniform %s samp%d;\n", "sampler2D", input->texid);
+				}
 			}
 			else if (input->source == GPU_SOURCE_BUILTIN) {
 				/* only define each builting uniform/varying once */

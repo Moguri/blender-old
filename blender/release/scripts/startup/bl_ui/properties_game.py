@@ -697,7 +697,7 @@ class DATA_PT_shadow_game(DataButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        COMPAT_LIGHTS = {'SPOT', 'SUN'}
+        COMPAT_LIGHTS = {'SPOT', 'SUN', 'POINT'}
         lamp = context.lamp
         engine = context.scene.render.engine
         return (lamp and lamp.type in COMPAT_LIGHTS) and (engine in cls.COMPAT_ENGINES)
