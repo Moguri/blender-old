@@ -681,6 +681,12 @@ static void rna_def_lamp_shadow(StructRNA *srna, int spot, int area)
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", LA_LAYER_SHADOW);
 	RNA_def_property_ui_text(prop, "Shadow Layer", "Objects on the same layers only cast shadows");
 	RNA_def_property_update(prop, 0, "rna_Lamp_update");
+
+	prop = RNA_def_property(srna, "shadow_cascades", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "cascades");
+	RNA_def_property_range(prop, 1, 4);
+	RNA_def_property_ui_text(prop, "Cascades", "The number of times to divide the light frustum to get better shadows near the viewer");
+	RNA_def_property_update(prop, 0, "rna_Lamp_update");
 }
 
 static void rna_def_point_lamp(BlenderRNA *brna)

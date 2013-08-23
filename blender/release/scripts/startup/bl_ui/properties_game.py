@@ -732,6 +732,10 @@ class DATA_PT_shadow_game(DataButtonsPanel, Panel):
         col.prop(lamp, "shadow_buffer_bias", text="Bias")
         col.prop(lamp, "shadow_buffer_bleed_bias", text="Bleed Bias")
 
+        if lamp.type == 'SUN':
+            col = layout.column()
+            col.prop(lamp, "shadow_cascades")
+
         row = layout.row()
         row.label("Clipping:")
         row = layout.row(align=True)
