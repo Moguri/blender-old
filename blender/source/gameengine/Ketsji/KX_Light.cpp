@@ -254,7 +254,7 @@ int KX_LightObject::GetShadowLayer()
 
 int KX_LightObject::GetShadowBufferCount()
 {
-	return (this->m_lightobj.m_type == RAS_LightObject::LIGHT_NORMAL) ? 6 : 1;
+	return GPU_lamp_shadow_passes(GetGPULamp());
 }
 
 void KX_LightObject::BindShadowBuffer(RAS_IRasterizer *ras, MT_Matrix4x4 &caminv, RAS_ICanvas *canvas, KX_Camera *cam, MT_Transform& camtrans, int pass)

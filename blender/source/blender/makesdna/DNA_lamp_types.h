@@ -67,7 +67,8 @@ typedef struct Lamp {
 	
 	float clipsta, clipend, shadspotsize;
 	float bias, soft, compressthresh, bleedbias, pad5[2];
-	short bufsize, samp, buffers, filtertype;
+	short bufsize, samp, buffers;
+	char cascades, filtertype;
 	char bufflag, buftype;
 	
 	short ray_samp, ray_sampy, ray_sampz;

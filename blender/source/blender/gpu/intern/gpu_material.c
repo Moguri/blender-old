@@ -1788,8 +1788,17 @@ GPULamp *GPU_lamp_from_blender(Scene *scene, Object *ob, Object *par)
 	if ((la->type==LA_SPOT && (la->mode & LA_SHAD_BUF)) || 
 		((la->type==LA_SUN || la->type==LA_LOCAL) && la->mode & LA_SHAD_RAY))
 	{
-		int width = (la->type == LA_LOCAL) ? lamp->size * 3 : lamp->size;
-		int height = (la->type == LA_LOCAL) ? lamp->size * 2 : lamp->size;
+		int width = lamp->size;
+		int height = lamp->size;
+		
+		if (la->type == LA_LOCAL) {
+			width *= 3;
+			height *= 2;
+		}
+		else if (la->type == LA_SUN) {
+			width *= (la->cascades > 1) ? 2 : 1;
+			height *= (la->cascades > 2) ? 2 : 1;
+		}
 
 		/* opengl */
 		lamp->fb = GPU_framebuffer_create();
@@ -1975,14 +1984,13 @@ void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewma
 		float z = 1;
 		float n = 1.0;
 		float f = 1.000;
-		int pass = 1;
 		int slices = 3;
 		float sx, sy, sz, ox, oy, oz;
 		float maxx = - MAXFLOAT, maxy = -MAXFLOAT, maxz = -MAXFLOAT;
 		float minx = MAXFLOAT, miny = MAXFLOAT, minz = MAXFLOAT;
 		float C[4][4] = MAT4_UNITY;
-		float P[4][4];
 		float rangemat[4][4], persmat[4][4];
+		float x, y;
 
 		float clog, cuni;
 
@@ -2029,11 +2037,6 @@ void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewma
 		C[3][0] = ox;
 		C[3][1] = oy;
 
-		//copy_m4_m4(P, lamp->winmat);
-		//P[0][0] = 1.0;
-		//P[1][1] = 1.0;
-		//mul_m4_m4m4(lamp->persmat, C, lamp->persmat);
-
 		mul_m4_m4m4(winmat, C, lamp->winmat);
 
 		/* makeshadowbuf */
@@ -2048,13 +2051,21 @@ void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewma
 		rangemat[3][1] = 0.5f;
 		rangemat[3][2] = 0.5f;
 
+		width = height = lamp->size;
+		x = width * (pass % 2);
+		y = height * (pass / 2);
+		GPU_framebuffer_texture_bind(lamp->fb, lamp->tex, width, height);
+
 		mul_m4_m4m4(lamp->persmat, rangemat, persmat);
 		copy_m4_m4(viewmat, lamp->viewmat);
-		viewport[0] = viewport[1] = 0;
-		viewport[2] = viewport[3] = lamp->size;
+		viewport[0] = x;
+		viewport[1] = y;
+		viewport[2] = width;
+		viewport[3] = height;
 
-		glDisable(GL_SCISSOR_TEST);
-		GPU_framebuffer_texture_bind(lamp->fb, lamp->tex, width, height);
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(x, y, width, height);
+		glViewport(x, y, width, height);
 	}
 	else {
 		glDisable(GL_SCISSOR_TEST);
@@ -2090,7 +2101,14 @@ int GPU_lamp_shadow_buffer_type(GPULamp *lamp)
 
 int GPU_lamp_shadow_passes(GPULamp *lamp)
 {
-	return (lamp->type == LA_LOCAL) ? 6 : 1;
+	switch (lamp->type) {
+		case LA_LOCAL:
+			return 6;
+		case LA_SUN:
+			return lamp->la->cascades;
+		default:
+			return 1;
+	}
 }
 
 int GPU_lamp_shadow_layer(GPULamp *lamp)

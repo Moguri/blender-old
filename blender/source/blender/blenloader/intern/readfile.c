@@ -9625,6 +9625,15 @@ static void do_versions(FileData *fd, Library *lib, Main *main)
 		}
 	}
 
+	{
+		Lamp *la;
+		for (la = main->lamp.first; la; la = la->id.next) {
+			if (la->cascades == 0) {
+				la->cascades = 1;
+			}
+		}
+	}
+
 	/* WATCH IT!!!: pointers from libdata have not been converted yet here! */
 	/* WATCH IT 2!: Userdef struct init see do_versions_userdef() above! */
 
