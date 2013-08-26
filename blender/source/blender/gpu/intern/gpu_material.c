@@ -130,7 +130,9 @@ struct GPULamp {
 	float winmat[4][4];
 	float viewmat[4][4];
 	float persmat[4][4];
-	float dynpersmat[4][4];
+
+	/* Need to save extra dynpersmats for cascaded shadow maps */
+	float dynpersmat[4][4][4];
 
 	GPUFrameBuffer *fb;
 	GPUFrameBuffer *blurfb;
@@ -296,7 +298,12 @@ void GPU_material_bind(GPUMaterial *material, int oblay, int viewlay, double tim
 			if (material->dynproperty & DYN_LAMP_PERSMAT) {
 				if (!GPU_lamp_has_shadow_buffer(lamp)) /* The lamp matrices are already updated if we're using shadow buffers */
 					GPU_lamp_update_buffer_mats(lamp);
-				mul_m4_m4m4(lamp->dynpersmat, lamp->persmat, viewinv);
+				mul_m4_m4m4(lamp->dynpersmat[0], lamp->persmat, viewinv);
+				if (lamp->type == LA_SUN) {
+					int cascade = 1;
+					for (; cascade < lamp->la->cascades; cascade++)
+						mul_m4_m4m4(lamp->dynpersmat[cascade], lamp->dynpersmat[cascade], viewinv);
+				}
 			}
 		}
 
@@ -647,7 +654,7 @@ static void shade_light_textures(GPUMaterial *mat, GPULamp *lamp, GPUNodeLink **
 			GPU_link(mat, "shade_light_texture",
 				GPU_builtin(GPU_VIEW_POSITION),
 				GPU_image(mtex->tex->ima, &mtex->tex->iuser, FALSE),
-				GPU_dynamic_uniform((float*)lamp->dynpersmat, GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+				GPU_dynamic_uniform((float*)lamp->dynpersmat[0], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
 				&tex_rgb);
 			texture_rgb_blend(mat, tex_rgb, *rgb, GPU_uniform(&one), GPU_uniform(&mtex->colfac), mtex->blendtype, rgb); 
 		}
@@ -745,19 +752,30 @@ static void shade_one_light(GPUShadeInput *shi, GPUShadeResult *shr, GPULamp *la
 						GPU_uniform(&lamp->bias), &shadfac);
 				}
 			}
+			else if (lamp->type == LA_SUN) {
+				float cascades = lamp->la->cascades;
+					GPU_link(mat, "test_shadowbuf_cascade",
+						GPU_builtin(GPU_VIEW_POSITION),
+						GPU_dynamic_texture(lamp->tex, GPU_DYNAMIC_SAMPLER_2DSHADOW, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[0], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[1], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[2], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[3], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_uniform(&lamp->bias), GPU_uniform(&cascades), &shadfac);
+			}
 			else {
 				if (lamp->la->shadowmap_type == LA_SHADMAP_VARIANCE) {
 					GPU_link(mat, "test_shadowbuf_vsm",
 						GPU_builtin(GPU_VIEW_POSITION),
 						GPU_dynamic_texture(lamp->tex, GPU_DYNAMIC_SAMPLER_2DSHADOW, lamp->ob),
-						GPU_dynamic_uniform((float*)lamp->dynpersmat, GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[0], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
 						GPU_uniform(&lamp->bias), GPU_uniform(&lamp->la->bleedbias), inp, &shadfac);
 				}
 				else {
 					GPU_link(mat, "test_shadowbuf",
 						GPU_builtin(GPU_VIEW_POSITION),
 						GPU_dynamic_texture(lamp->tex, GPU_DYNAMIC_SAMPLER_2DSHADOW, lamp->ob),
-						GPU_dynamic_uniform((float*)lamp->dynpersmat, GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[0], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
 						GPU_uniform(&lamp->bias), inp, &shadfac);
 				}
 			}
@@ -1981,10 +1999,7 @@ void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewma
 
 		float corner[4];
 		int i;
-		float z = 1;
-		float n = 1.0;
-		float f = 1.000;
-		int slices = 3;
+		float z_adjust;
 		float sx, sy, sz, ox, oy, oz;
 		float maxx = - MAXFLOAT, maxy = -MAXFLOAT, maxz = -MAXFLOAT;
 		float minx = MAXFLOAT, miny = MAXFLOAT, minz = MAXFLOAT;
@@ -1994,18 +2009,26 @@ void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewma
 
 		float clog, cuni;
 
-		cuni = (float)pass/slices;
-		clog = pow(0.5f, slices-pass);
+		cuni = (float)(pass+1) / lamp->la->cascades;
+		clog = pow(0.5f, lamp->la->cascades - (pass+1));
 
-		z = 1.0;
+		z_adjust = 0.5*cuni + 0.5*clog;
+
 		for (i = 0; i < 8; i++) {
-			corner[0] = (i&2)?-1:1;
-			corner[1] = (i&1)?-1:1;
-			corner[2] = (i&4)?-1:1;
+			corner[0] = (i&2)?1:-1;
+			corner[1] = (i&1)?1:-1;
+			corner[2] = (i&4)?1:-1;
 			corner[3] = 1.0;
 
 			mul_m4_v4(caminv, corner);
 			mul_v4_fl(corner, 1.0 / corner[3]);
+
+			/* adjust the far plane for the cascade */
+			if (i&4) {
+				mul_v4_fl(corner, z_adjust);
+				corner[3] = 1.0;
+			}
+
 			mul_m4_v4(lamp->persmat, corner);
 
 			if (corner[0] > maxx)
@@ -2057,6 +2080,11 @@ void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewma
 		GPU_framebuffer_texture_bind(lamp->fb, lamp->tex, width, height);
 
 		mul_m4_m4m4(lamp->persmat, rangemat, persmat);
+
+		/* copy to dynpersmat for use in the shader */
+		if (pass+1 != lamp->la->cascades)
+			copy_m4_m4(lamp->dynpersmat[pass+1], lamp->persmat);
+
 		copy_m4_m4(viewmat, lamp->viewmat);
 		viewport[0] = x;
 		viewport[1] = y;

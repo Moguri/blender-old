@@ -1920,6 +1920,43 @@ void test_shadowbuf_cube(vec3 lv, float ldist, mat4 invview, samplerCube indirec
 	result = shadow2D(shadowmap, lookup).r;
 }
 
+void test_shadowbuf_cascade(vec3 rco, sampler2DShadow shadowmap, mat4 shadowpersmat0, mat4 shadowpersmat1, mat4 shadowpersmat2, mat4 shadowpersmat3, float shadowbias, float cascades, out float result)
+{
+	int i = 1, level = 0;
+	float cuni, clog, cascade_depth;
+	mat4 persmats[4];
+
+	persmats[0] = shadowpersmat1;
+	persmats[1] = shadowpersmat2;
+	persmats[2] = shadowpersmat3;
+	persmats[cascades-1] = shadowpersmat0;
+
+	float dist = (abs(rco.z)-5.0) / 495.0;
+	for (; i <= cascades; i++) {
+		cuni = i / cascades;
+		clog = pow(0.5, cascades - i);
+		cascade_depth = mix(cuni, clog, 0.5);
+
+		if (dist < cascade_depth) {
+
+			vec4 co = persmats[i-1]*vec4(rco, 1.0);
+			co.z -= shadowbias*co.w;
+
+			if (cascades > 1)
+				co.x *= 0.5;
+			if (cascades > 2)
+				co.y *= 0.5;
+
+			co.x += (i == 2 || i == 4) ? 0.5 : 0.0;
+			co.y += (i > 2) ? 0.5 : 0.0;
+
+			co.xyz /= co.w;
+			result = shadow2D(shadowmap, co.xyz).r;
+			break;
+		}
+	}
+}
+
 float vsm_result(vec2 moments, float dist, float shadowbias, float bleedbias)
 {
 	float p = 0.0;
