@@ -1945,11 +1945,7 @@ void test_shadowbuf(vec3 rco, sampler2DShadow shadowmap, mat4 shadowpersmat, flo
 
 		//float bias = (1.5 - inp*inp)*shadowbias;
 		co.z -= shadowbias*co.w;
-		
-		if (co.w > 0.0 && co.x > 0.0 && co.x/co.w < 1.0 && co.y > 0.0 && co.y/co.w < 1.0)
-			result = shadow2DProj(shadowmap, co).x;
-		else
-			result = 1.0;
+		result = shadow2DProj(shadowmap, co).x;
 	}
 }
 
