@@ -1888,6 +1888,53 @@ void shade_only_shadow_specular(float shadfac, vec3 specrgb, vec4 spec, out vec4
 	outspec = spec - vec4(specrgb*shadfac, 0.0);
 }
 
+vec4 shadow_cascade_coords(vec3 rco, mat4 shadowpersmat0, mat4 shadowpersmat1, mat4 shadowpersmat2, mat4 shadowpersmat3, float cascades)
+{
+	int i = 1;
+	int count = int(cascades);
+	float cuni, clog, cascade_depth;
+	mat4 persmats[4];
+
+	persmats[0] = shadowpersmat1;
+	persmats[1] = shadowpersmat2;
+	persmats[2] = shadowpersmat3;
+	persmats[count-1] = shadowpersmat0;
+
+	float dist = (abs(rco.z)-10.0) / 50.0;
+	for (; i <= count; i++) {
+		cuni = float(i) / float(count);
+		clog = pow(0.5, float(count - i));
+		cascade_depth = mix(cuni, clog, 0.5);
+
+		if (dist < cascade_depth) {
+
+			vec4 co = persmats[i-1]*vec4(rco, 1.0);
+
+			if (count > 1)
+				co.x *= 0.5;
+			if (count > 2)
+				co.y *= 0.5;
+
+			co.x += (i == 2 || i == 4) ? 0.5 : 0.0;
+			co.y += (i > 2) ? 0.5 : 0.0;
+
+			return co;
+		}
+	}
+}
+
+vec4 shadow_cube_coords(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, float near, float far)
+{
+	vec4 light_dir = invview * vec4(lv, 0.0);
+
+	vec3 lookup;
+	lookup.xy = textureCube(indirectionmap, light_dir.xyz).rg;
+	light_dir = abs(light_dir*ldist);
+	float MA = max(max(light_dir.x, light_dir.y), light_dir.z);
+	lookup.z = (-1.0/MA) * ((far*near)/(far-near)) + far/(far-near);
+	return vec4(lookup, 1.0);
+}
+
 void test_shadowbuf(vec3 rco, sampler2DShadow shadowmap, mat4 shadowpersmat, float shadowbias, float inp, out float result)
 {
 	if(inp <= 0.0) {
@@ -1908,53 +1955,16 @@ void test_shadowbuf(vec3 rco, sampler2DShadow shadowmap, mat4 shadowpersmat, flo
 
 void test_shadowbuf_cube(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, sampler2DShadow shadowmap, float near, float far, float shadowbias, out float result)
 {
-	vec4 light_dir = invview * vec4(lv, 0.0);
-
-	vec3 lookup;
-	lookup.xy = textureCube(indirectionmap, light_dir.xyz).rg;
-	light_dir = abs(light_dir*ldist);
-	float MA = max(max(light_dir.x, light_dir.y), light_dir.z);
-	lookup.z = (-1.0/MA) * ((far*near)/(far-near)) + far/(far-near);
-	lookup.z -= shadowbias * 10.0;
-
-	result = shadow2D(shadowmap, lookup).r;
+	vec4 co = shadow_cube_coords(lv, ldist, invview, indirectionmap, near, far);
+	co.z -= shadowbias * 10.0;
+	result = shadow2D(shadowmap, co.xyz).r;
 }
 
 void test_shadowbuf_cascade(vec3 rco, sampler2DShadow shadowmap, mat4 shadowpersmat0, mat4 shadowpersmat1, mat4 shadowpersmat2, mat4 shadowpersmat3, float shadowbias, float cascades, out float result)
 {
-	int i = 1, level = 0;
-	float cuni, clog, cascade_depth;
-	mat4 persmats[4];
-
-	persmats[0] = shadowpersmat1;
-	persmats[1] = shadowpersmat2;
-	persmats[2] = shadowpersmat3;
-	persmats[cascades-1] = shadowpersmat0;
-
-	float dist = (abs(rco.z)-5.0) / 495.0;
-	for (; i <= cascades; i++) {
-		cuni = i / cascades;
-		clog = pow(0.5, cascades - i);
-		cascade_depth = mix(cuni, clog, 0.5);
-
-		if (dist < cascade_depth) {
-
-			vec4 co = persmats[i-1]*vec4(rco, 1.0);
-			co.z -= shadowbias*co.w;
-
-			if (cascades > 1)
-				co.x *= 0.5;
-			if (cascades > 2)
-				co.y *= 0.5;
-
-			co.x += (i == 2 || i == 4) ? 0.5 : 0.0;
-			co.y += (i > 2) ? 0.5 : 0.0;
-
-			co.xyz /= co.w;
-			result = shadow2D(shadowmap, co.xyz).r;
-			break;
-		}
-	}
+	vec4 co = shadow_cascade_coords(rco, shadowpersmat0, shadowpersmat1, shadowpersmat2, shadowpersmat3, cascades);
+	co.z -= shadowbias*co.w;
+	result = shadow2DProj(shadowmap, co).r;
 }
 
 float vsm_result(vec2 moments, float dist, float shadowbias, float bleedbias)
@@ -1996,16 +2006,9 @@ void test_shadowbuf_vsm(vec3 rco, sampler2D shadowmap, mat4 shadowpersmat, float
 
 void test_shadowbuf_vsm_cube(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, sampler2D shadowmap, float near, float far, float shadowbias, float bleedbias, out float result)
 {
-	vec4 light_dir = invview * vec4(lv, 0.0);
-
-	vec3 lookup;
-	lookup.xy = textureCube(indirectionmap, light_dir.xyz).rg;
-	light_dir = abs(light_dir*ldist);
-	float MA = max(max(light_dir.x, light_dir.y), light_dir.z);
-	lookup.z = (-1.0/MA) * ((far*near)/(far-near)) + far/(far-near) - 0.1;
-
-	vec2 moments = texture2D(shadowmap, lookup.xy).rg;
-	result = vsm_result(moments, lookup.z, shadowbias, bleedbias);
+	vec4 co = shadow_cube_coords(lv, ldist, invview, indirectionmap, near, far);
+	vec2 moments = texture2D(shadowmap, co.xy).rg;
+	result = vsm_result(moments, co.z, shadowbias, bleedbias);
 }
 
 void shade_light_texture(vec3 rco, sampler2D cookie, mat4 shadowpersmat, out vec4 result)
