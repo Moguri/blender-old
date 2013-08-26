@@ -1989,14 +1989,9 @@ void test_shadowbuf_vsm(vec3 rco, sampler2D shadowmap, mat4 shadowpersmat, float
 	}
 	else {
 		vec4 co = shadowpersmat*vec4(rco, 1.0);
-		if (co.w > 0.0 && co.x > 0.0 && co.x/co.w < 1.0 && co.y > 0.0 && co.y/co.w < 1.0) {
-			vec2 moments = texture2DProj(shadowmap, co).rg;
-			float dist = co.z/co.w;
-			result = vsm_result(moments, dist, shadowbias, bleedbias);
-		}
-		else {
-			result = 1.0;
-		}
+		vec2 moments = texture2DProj(shadowmap, co).rg;
+		float dist = co.z/co.w;
+		result = vsm_result(moments, dist, shadowbias, bleedbias);
 	}
 }
 
@@ -2004,6 +1999,13 @@ void test_shadowbuf_vsm_cube(vec3 lv, float ldist, mat4 invview, samplerCube ind
 {
 	vec4 co = shadow_cube_coords(lv, ldist, invview, indirectionmap, near, far);
 	vec2 moments = texture2D(shadowmap, co.xy).rg;
+	result = vsm_result(moments, co.z, shadowbias, bleedbias);
+}
+
+void test_shadowbuf_vsm_cascade(vec3 rco, sampler2D shadowmap, mat4 shadowpersmat0, mat4 shadowpersmat1, mat4 shadowpersmat2, mat4 shadowpersmat3, float shadowbias, float bleedbias, float cascades, out float result)
+{
+	vec4 co = shadow_cascade_coords(rco, shadowpersmat0, shadowpersmat1, shadowpersmat2, shadowpersmat3, cascades);
+	vec2 moments = texture2DProj(shadowmap, co).rg;
 	result = vsm_result(moments, co.z, shadowbias, bleedbias);
 }
 

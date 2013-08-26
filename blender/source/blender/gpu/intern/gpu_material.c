@@ -754,6 +754,17 @@ static void shade_one_light(GPUShadeInput *shi, GPUShadeResult *shr, GPULamp *la
 			}
 			else if (lamp->type == LA_SUN) {
 				float cascades = lamp->la->cascades;
+				if (lamp->la->shadowmap_type == LA_SHADMAP_VARIANCE) {
+					GPU_link(mat, "test_shadowbuf_vsm_cascade",
+						GPU_builtin(GPU_VIEW_POSITION),
+						GPU_dynamic_texture(lamp->tex, GPU_DYNAMIC_SAMPLER_2DSHADOW, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[0], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[1], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[2], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_dynamic_uniform((float*)lamp->dynpersmat[3], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
+						GPU_uniform(&lamp->bias), GPU_uniform(&lamp->la->bleedbias), GPU_uniform(&cascades), &shadfac);
+				}
+				else {
 					GPU_link(mat, "test_shadowbuf_cascade",
 						GPU_builtin(GPU_VIEW_POSITION),
 						GPU_dynamic_texture(lamp->tex, GPU_DYNAMIC_SAMPLER_2DSHADOW, lamp->ob),
@@ -762,6 +773,7 @@ static void shade_one_light(GPUShadeInput *shi, GPUShadeResult *shr, GPULamp *la
 						GPU_dynamic_uniform((float*)lamp->dynpersmat[2], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
 						GPU_dynamic_uniform((float*)lamp->dynpersmat[3], GPU_DYNAMIC_LAMP_DYNPERSMAT, lamp->ob),
 						GPU_uniform(&lamp->bias), GPU_uniform(&cascades), &shadfac);
+				}
 			}
 			else {
 				if (lamp->la->shadowmap_type == LA_SHADMAP_VARIANCE) {
