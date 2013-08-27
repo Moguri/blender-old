@@ -1923,9 +1923,14 @@ vec4 shadow_cascade_coords(vec3 rco, mat4 shadowpersmat0, mat4 shadowpersmat1, m
 	}
 }
 
-vec4 shadow_cube_coords(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, float near, float far)
+vec4 shadow_cube_coords(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, float near, float far, float scale)
 {
 	vec4 light_dir = invview * vec4(lv, 0.0);
+	
+	float M = max(max(abs(light_dir.x), abs(light_dir.y)), abs(light_dir.z));
+	if (abs(light_dir.x) != M) light_dir.x *= scale;
+	if (abs(light_dir.y) != M) light_dir.y *= scale;
+	if (abs(light_dir.z) != M) light_dir.z *= scale;
 
 	vec3 lookup;
 	lookup.xy = textureCube(indirectionmap, light_dir.xyz).rg;
@@ -1949,9 +1954,9 @@ void test_shadowbuf(vec3 rco, sampler2DShadow shadowmap, mat4 shadowpersmat, flo
 	}
 }
 
-void test_shadowbuf_cube(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, sampler2DShadow shadowmap, float near, float far, float shadowbias, out float result)
+void test_shadowbuf_cube(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, sampler2DShadow shadowmap, float near, float far, float shadowbias, float scale, out float result)
 {
-	vec4 co = shadow_cube_coords(lv, ldist, invview, indirectionmap, near, far);
+	vec4 co = shadow_cube_coords(lv, ldist, invview, indirectionmap, near, far, scale);
 	co.z -= shadowbias * 10.0;
 	result = shadow2D(shadowmap, co.xyz).r;
 }
@@ -1995,9 +2000,9 @@ void test_shadowbuf_vsm(vec3 rco, sampler2D shadowmap, mat4 shadowpersmat, float
 	}
 }
 
-void test_shadowbuf_vsm_cube(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, sampler2D shadowmap, float near, float far, float shadowbias, float bleedbias, out float result)
+void test_shadowbuf_vsm_cube(vec3 lv, float ldist, mat4 invview, samplerCube indirectionmap, sampler2D shadowmap, float near, float far, float shadowbias, float bleedbias, float scale, out float result)
 {
-	vec4 co = shadow_cube_coords(lv, ldist, invview, indirectionmap, near, far);
+	vec4 co = shadow_cube_coords(lv, ldist, invview, indirectionmap, near, far, scale);
 	vec2 moments = texture2D(shadowmap, co.xy).rg;
 	result = vsm_result(moments, co.z, shadowbias, bleedbias);
 }

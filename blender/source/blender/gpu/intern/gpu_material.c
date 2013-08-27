@@ -734,14 +734,17 @@ static void shade_one_light(GPUShadeInput *shi, GPUShadeResult *shr, GPULamp *la
 			mat->dynproperty |= DYN_LAMP_PERSMAT;
 
 			if (lamp->type == LA_LOCAL) {
-				GPUTexture *indmap = GPU_texture_create_indirection_cubemap(1024, NULL);
+				float scale;
+				GPUTexture *indmap = GPU_texture_create_indirection_cubemap(lamp->size, &scale, NULL);
+
 				if (lamp->la->shadowmap_type == LA_SHADMAP_VARIANCE) {
 					GPU_link(mat, "test_shadowbuf_vsm_cube", lv, dist,
 						GPU_builtin(GPU_INVERSE_VIEW_MATRIX),
 						GPU_dynamic_texture(indmap, 0, NULL),
 						GPU_dynamic_texture(lamp->tex, GPU_DYNAMIC_SAMPLER_2DSHADOW, lamp->ob),
 						GPU_uniform(&lamp->d), GPU_uniform(&lamp->clipend),
-						GPU_uniform(&lamp->bias), GPU_uniform(&lamp->la->bleedbias), &shadfac);
+						GPU_uniform(&lamp->bias), GPU_uniform(&lamp->la->bleedbias),
+						GPU_uniform(&scale), &shadfac);
 				}
 				else {
 					GPU_link(mat, "test_shadowbuf_cube", lv, dist,
@@ -749,7 +752,7 @@ static void shade_one_light(GPUShadeInput *shi, GPUShadeResult *shr, GPULamp *la
 						GPU_dynamic_texture(indmap, 0, NULL),
 						GPU_dynamic_texture(lamp->tex, GPU_DYNAMIC_SAMPLER_2DSHADOW, lamp->ob),
 						GPU_uniform(&lamp->d), GPU_uniform(&lamp->clipend),
-						GPU_uniform(&lamp->bias), &shadfac);
+						GPU_uniform(&lamp->bias), GPU_uniform(&scale), &shadfac);
 				}
 			}
 			else if (lamp->type == LA_SUN) {

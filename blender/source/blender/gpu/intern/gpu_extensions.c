@@ -693,12 +693,13 @@ GPUTexture *GPU_texture_create_vsm_shadow_map(int w, int h, char err_out[256])
 	return tex;
 }
 
-GPUTexture *GPU_texture_create_indirection_cubemap(int resolution, char err_out[256])
+GPUTexture *GPU_texture_create_indirection_cubemap(int resolution, float *scale, char err_out[256])
 {
 	GPUTexture *tex;
 	int map_res = resolution/16;
 	int face, x, y;
 	unsigned short *data = MEM_mallocN(sizeof(unsigned short) * 2 * map_res * map_res, "Indirection Cubemap Data");
+	int u, v;
 	float xstep, ystep, xstart, ystart, xrange, yrange;
 
 	tex = MEM_callocN(sizeof(GPUTexture), "GPUTexture");
@@ -741,17 +742,21 @@ GPUTexture *GPU_texture_create_indirection_cubemap(int resolution, char err_out[
 		ystart = (face & 1) ? yrange : 0.0f;
 		for (y = 0; y < tex->h; y++) {
 			for (x = 0; x < tex->w; x++) {
-				data[(y*tex->w + x) * 2 + 0] = (x * xstep + xstart) * USHRT_MAX;
-				data[(y*tex->w + x) * 2 + 1] = (y * ystep + ystart) * USHRT_MAX;
+				u = (x * xstep + xstart) * USHRT_MAX;
+				CLAMP(u, 0, USHRT_MAX);
+				data[(y*tex->w + x) * 2 + 0] = u;
+				v = (y * ystep + ystart) * USHRT_MAX;
+				CLAMP(v, 0, USHRT_MAX);
+				data[(y*tex->w + x) * 2 + 1] = v;
 			}
 		}
 
 		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, GL_RG16, map_res, map_res, 0, GL_RG, GL_UNSIGNED_SHORT, data);
 		glTexParameteri(tex->target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(tex->target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	}
+
+	*scale = (map_res - 1.05) / map_res;
 
 	MEM_freeN(data);
 	return tex;
