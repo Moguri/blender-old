@@ -839,13 +839,6 @@ static void rna_def_sun_lamp(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Sky Settings", "Sky related settings for sun lamps");
 
 	rna_def_lamp_sky_settings(brna);
-
-	/* BGE Only */
-	prop = RNA_def_property(srna, "shadow_frustum_size", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "shadow_frustum_size");
-	RNA_def_property_ui_range(prop, 0.001, 100.0, 2, 1);
-	RNA_def_property_ui_text(prop, "Frustum Size", "Size of the frustum used for creating the shadow map");
-	RNA_def_property_update(prop, 0, "rna_Lamp_draw_update");
 }
 
 static void rna_def_hemi_lamp(BlenderRNA *brna)

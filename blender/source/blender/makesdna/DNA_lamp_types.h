@@ -97,9 +97,8 @@ typedef struct Lamp {
 	float atm_distance_factor;
 	float skyblendfac;
 	float sky_exposure;
-	float shadow_frustum_size;		/* BGE Only */
 	short sky_colorspace;
-	char pad4[2];
+	char pad4[6];
 
 	struct Ipo *ipo  DNA_DEPRECATED;  /* old animation system, deprecated for 2.5 */
 	struct MTex *mtex[18];			/* MAX_MTEX */

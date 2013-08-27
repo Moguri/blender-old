@@ -8513,11 +8513,6 @@ static void do_versions(FileData *fd, Library *lib, Main *main)
 		Camera *cam;
 		Curve *cu;
 		
-		for (la = main->lamp.first; la; la = la->id.next) {
-			if (la->shadow_frustum_size == 0.0f)
-				la->shadow_frustum_size= 10.0f;
-		}
-		
 		for (cam = main->camera.first; cam; cam = cam->id.next) {
 			if (cam->flag & CAM_PANORAMA) {
 				cam->type = CAM_PANO;

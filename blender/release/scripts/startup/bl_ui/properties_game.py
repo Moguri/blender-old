@@ -742,10 +742,6 @@ class DATA_PT_shadow_game(DataButtonsPanel, Panel):
         row.prop(lamp, "shadow_buffer_clip_start", text="Clip Start")
         row.prop(lamp, "shadow_buffer_clip_end", text="Clip End")
 
-        if lamp.type == 'SUN':
-            row = layout.row()
-            row.prop(lamp, "shadow_frustum_size", text="Frustum Size")
-
 
 if __name__ == "__main__":  # only for live edit.
     bpy.utils.register_module(__name__)
