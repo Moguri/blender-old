@@ -2118,7 +2118,10 @@ void GPU_lamp_shadow_buffer_unbind(GPULamp *lamp, int pass)
 	if (last_pass && lamp->la->shadowmap_type == LA_SHADMAP_VARIANCE) {
 		GPU_shader_unbind();
 		glDisable(GL_SCISSOR_TEST);
-		GPU_framebuffer_blur(lamp->fb, lamp->tex, lamp->blurfb, lamp->blurtex);
+
+		/* Bluring does not work well for the virtual cubemap */
+		if (lamp->type != LA_LOCAL)
+			GPU_framebuffer_blur(lamp->fb, lamp->tex, lamp->blurfb, lamp->blurtex);
 	}
 
 	GPU_framebuffer_texture_unbind(lamp->fb, lamp->tex);
