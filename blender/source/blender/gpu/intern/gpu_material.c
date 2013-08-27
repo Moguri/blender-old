@@ -1944,7 +1944,8 @@ int GPU_lamp_has_shadow_buffer(GPULamp *lamp)
 
 void GPU_lamp_update_buffer_mats(GPULamp *lamp)
 {
-	float rangemat[4][4], persmat[4][4];
+	float rangemat[4][4] = MAT4_RANGE;
+	float persmat[4][4];
 
 	/* initshadowbuf */
 	invert_m4_m4(lamp->viewmat, lamp->obmat);
@@ -1956,68 +1957,17 @@ void GPU_lamp_update_buffer_mats(GPULamp *lamp)
 	mul_m4_m4m4(persmat, lamp->winmat, lamp->viewmat);
 
 	/* opengl depth buffer is range 0.0..1.0 instead of -1.0..1.0 in blender */
-	unit_m4(rangemat);
-	rangemat[0][0] = 0.5f;
-	rangemat[1][1] = 0.5f;
-	rangemat[2][2] = 0.5f;
-	rangemat[3][0] = 0.5f;
-	rangemat[3][1] = 0.5f;
-	rangemat[3][2] = 0.5f;
-
 	mul_m4_m4m4(lamp->persmat, rangemat, persmat);
 }
 
-void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewmat[4][4], int viewport[4], float winmat[4][4], int pass)
+static void calculate_crop_matrix(GPULamp *lamp, float caminv[4][4], int pass, float C[4][4])
 {
-	int width = GPU_texture_opengl_width(lamp->tex);
-	int height = GPU_texture_opengl_height(lamp->tex);
-	GPU_lamp_update_buffer_mats(lamp);
-
-	glPushAttrib(GL_SCISSOR_BIT);
-
-	/* opengl */
-	if (lamp->type == LA_LOCAL) {
-		int x, y;
-
-		int u = pass % 3;
-		int v = pass / 3;
-
-		float px = lamp->co[0] + ((u == 0) ? 1.0 : 0.0) * ((v) ? -1 : 1);
-		float py = lamp->co[1] + ((u == 1) ? 1.0 : 0.0) * ((v) ? -1 : 1);
-		float pz = lamp->co[2] + ((u == 2) ? 1.0 : 0.0) * ((v) ? -1 : 1);
-
-		float twist = (u == 1) ? 0.0f : M_PI;//(u == 2) ?  M_PI : M_PI / (2 - u);
-		if (v) twist *= -1;
-
-		width /= 3;
-		height /= 2;
-		x = width * (pass % 3);
-		y = height * (pass / 3);
-
-		GPU_framebuffer_texture_bind(lamp->fb, lamp->tex, width, height);
-		viewport[0] = x;
-		viewport[1] = y;
-		viewport[2] = width;
-		viewport[3] = height;
-		glViewport(x, y, width, height);
-
-		glEnable(GL_SCISSOR_TEST);
-		glScissor(x, y, width, height);
-
-		lookat_m4(viewmat, lamp->co[0], lamp->co[1], lamp->co[2], px, py, pz, twist);
-		copy_m4_m4(winmat, lamp->winmat);
-	}
-	else if (lamp->type == LA_SUN) {
-
 		float corner[4];
 		int i;
 		float z_adjust;
 		float sx, sy, sz, ox, oy, oz;
 		float maxx = - MAXFLOAT, maxy = -MAXFLOAT, maxz = -MAXFLOAT;
 		float minx = MAXFLOAT, miny = MAXFLOAT, minz = MAXFLOAT;
-		float C[4][4] = MAT4_UNITY;
-		float rangemat[4][4], persmat[4][4];
-		float x, y;
 
 		float clog, cuni;
 
@@ -2066,46 +2016,85 @@ void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewma
 		sz = 0.5f / maxz;
 		ox = -1.0 * (maxx + minx) * sx;
 		oy = -1.0 * (maxy + miny) * sy;
+
+		unit_m4(C);
 		C[0][0] = sx;
 		C[1][1] = sy;
 		C[2][2] = sz;
 		C[3][0] = ox;
 		C[3][1] = oy;
+}
+
+void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewmat[4][4], int viewport[4], float winmat[4][4], int pass)
+{
+	int width = GPU_texture_opengl_width(lamp->tex);
+	int height = GPU_texture_opengl_height(lamp->tex);
+	GPU_lamp_update_buffer_mats(lamp);
+
+	glPushAttrib(GL_SCISSOR_BIT);
+
+	/* opengl */
+	if (lamp->type == LA_LOCAL) {
+		int x, y;
+
+		int u = pass % 3;
+		int v = pass / 3;
+
+		float px = lamp->co[0] + ((u == 0) ? 1.0 : 0.0) * ((v) ? -1 : 1);
+		float py = lamp->co[1] + ((u == 1) ? 1.0 : 0.0) * ((v) ? -1 : 1);
+		float pz = lamp->co[2] + ((u == 2) ? 1.0 : 0.0) * ((v) ? -1 : 1);
+
+		float twist = (u == 1) ? 0.0f : M_PI;
+		if (v) twist *= -1;
+
+		width /= 3;
+		height /= 2;
+		x = width * (pass % 3);
+		y = height * (pass / 3);
+
+		GPU_framebuffer_texture_bind(lamp->fb, lamp->tex, width, height);
+		viewport[0] = x;
+		viewport[1] = y;
+		viewport[2] = width;
+		viewport[3] = height;
+		glViewport(x, y, width, height);
+
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(x, y, width, height);
+
+		lookat_m4(viewmat, lamp->co[0], lamp->co[1], lamp->co[2], px, py, pz, twist);
+		copy_m4_m4(winmat, lamp->winmat);
+	}
+	else if (lamp->type == LA_SUN) {
+		float rangemat[4][4] = MAT4_RANGE;
+		float C[4][4];
+		float x, y;
+
+		calculate_crop_matrix(lamp, caminv, pass, C);
 
 		mul_m4_m4m4(winmat, C, lamp->winmat);
-
-		/* makeshadowbuf */
-		mul_m4_m4m4(persmat, winmat, lamp->viewmat);
-
-		/* opengl depth buffer is range 0.0..1.0 instead of -1.0..1.0 in blender */
-		unit_m4(rangemat);
-		rangemat[0][0] = 0.5f;
-		rangemat[1][1] = 0.5f;
-		rangemat[2][2] = 0.5f;
-		rangemat[3][0] = 0.5f;
-		rangemat[3][1] = 0.5f;
-		rangemat[3][2] = 0.5f;
-
-		width = height = lamp->size;
-		x = width * (pass % 2);
-		y = height * (pass / 2);
-		GPU_framebuffer_texture_bind(lamp->fb, lamp->tex, width, height);
-
-		mul_m4_m4m4(lamp->persmat, rangemat, persmat);
+		mul_m4_m4m4(lamp->persmat, winmat, lamp->viewmat);
+		mul_m4_m4m4(lamp->persmat, rangemat, lamp->persmat);
 
 		/* copy to dynpersmat for use in the shader */
 		if (pass+1 != lamp->la->cascades)
 			copy_m4_m4(lamp->dynpersmat[pass+1], lamp->persmat);
 
-		copy_m4_m4(viewmat, lamp->viewmat);
+		width = height = lamp->size;
+		x = width * (pass % 2);
+		y = height * (pass / 2);
+
+		GPU_framebuffer_texture_bind(lamp->fb, lamp->tex, width, height);
 		viewport[0] = x;
 		viewport[1] = y;
 		viewport[2] = width;
 		viewport[3] = height;
+		glViewport(x, y, width, height);
 
 		glEnable(GL_SCISSOR_TEST);
 		glScissor(x, y, width, height);
-		glViewport(x, y, width, height);
+
+		copy_m4_m4(viewmat, lamp->viewmat);
 	}
 	else {
 		glDisable(GL_SCISSOR_TEST);
