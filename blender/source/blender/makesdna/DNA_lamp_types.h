@@ -66,7 +66,8 @@ typedef struct Lamp {
 	short pad2;
 	
 	float clipsta, clipend, shadspotsize;
-	float bias, soft, compressthresh, bleedbias, pad5[2];
+	float bias, soft, compressthresh, bleedbias, pad5;
+	int glsl_flags;
 	short bufsize, samp, buffers;
 	char cascades, filtertype;
 	char bufflag, buftype;
@@ -209,6 +210,11 @@ typedef struct Lamp {
 /* shadowmap_type */
 #define LA_SHADMAP_SIMPLE	0
 #define LA_SHADMAP_VARIANCE	1
+
+/* glsl_flags */
+#define LA_GLSL_SOFT_SHADOW			(1<<0)
+#define LA_GLSL_LOW_PRECISION		(1<<1)
+#define LA_GLSL_FRONT_FACE_CULLING	(1<<2)
 
 #endif /* __DNA_LAMP_TYPES_H__ */
 

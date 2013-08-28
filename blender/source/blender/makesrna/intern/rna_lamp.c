@@ -687,6 +687,22 @@ static void rna_def_lamp_shadow(StructRNA *srna, int spot, int area)
 	RNA_def_property_range(prop, 1, 4);
 	RNA_def_property_ui_text(prop, "Cascades", "The number of times to divide the light frustum to get better shadows near the viewer");
 	RNA_def_property_update(prop, 0, "rna_Lamp_update");
+
+	/* GLSL Flags */
+	prop = RNA_def_property(srna, "glsl_use_soft_shadow", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "glsl_flags", LA_GLSL_SOFT_SHADOW);
+	RNA_def_property_ui_text(prop, "Soft Shadow", "Soften shadows with a blur shader");
+	RNA_def_property_update(prop, 0, "rna_Lamp_update");
+
+	prop = RNA_def_property(srna, "glsl_use_low_precision", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "glsl_flags", LA_GLSL_LOW_PRECISION);
+	RNA_def_property_ui_text(prop, "Low Precision", "Use a lower precision buffer (improves performance but may cause artifacts)");
+	RNA_def_property_update(prop, 0, "rna_Lamp_update");
+
+	prop = RNA_def_property(srna, "glsl_use_ff_culling", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "glsl_flags", LA_GLSL_FRONT_FACE_CULLING);
+	RNA_def_property_ui_text(prop, "Front Face Culling", "Use front face culling while drawing shadows (reduces artifacts but thin models may not draw correctly)");
+	RNA_def_property_update(prop, 0, "rna_Lamp_update");
 }
 
 static void rna_def_point_lamp(BlenderRNA *brna)

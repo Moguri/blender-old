@@ -1841,6 +1841,8 @@ GPULamp *GPU_lamp_from_blender(Scene *scene, Object *ob, Object *par)
 		}
 
 		if (lamp->la->shadowmap_type == LA_SHADMAP_VARIANCE) {
+			int highp = !(lamp->la->glsl_flags & LA_GLSL_LOW_PRECISION);
+
 			/* Shadow depth map */
 			lamp->depthtex = GPU_texture_create_depth(width, height, NULL);
 			if (!lamp->depthtex) {
@@ -1854,7 +1856,7 @@ GPULamp *GPU_lamp_from_blender(Scene *scene, Object *ob, Object *par)
 			}
 
 			/* Shadow color map */
-			lamp->tex = GPU_texture_create_vsm_shadow_map(width, height, NULL);
+			lamp->tex = GPU_texture_create_vsm_shadow_map(width, height, highp, NULL);
 			if (!lamp->tex) {
 				gpu_lamp_shadow_free(lamp);
 				return lamp;
@@ -1872,7 +1874,7 @@ GPULamp *GPU_lamp_from_blender(Scene *scene, Object *ob, Object *par)
 				return lamp;
 			}
 
-			lamp->blurtex = GPU_texture_create_vsm_shadow_map(width*0.5, height*0.5, NULL);
+			lamp->blurtex = GPU_texture_create_vsm_shadow_map(width*0.5, height*0.5, highp, NULL);
 			if (!lamp->blurtex) {
 				gpu_lamp_shadow_free(lamp);
 				return lamp;
@@ -2034,7 +2036,12 @@ void GPU_lamp_shadow_buffer_bind(GPULamp *lamp, float caminv[4][4], float viewma
 	int height = GPU_texture_opengl_height(lamp->tex);
 	GPU_lamp_update_buffer_mats(lamp);
 
-	glPushAttrib(GL_SCISSOR_BIT);
+	glPushAttrib(GL_SCISSOR_BIT | GL_POLYGON_BIT);
+
+	if (lamp->la->glsl_flags & LA_GLSL_FRONT_FACE_CULLING) {
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
+	}
 
 	/* opengl */
 	if (lamp->type == LA_LOCAL) {
@@ -2118,9 +2125,9 @@ void GPU_lamp_shadow_buffer_unbind(GPULamp *lamp, int pass)
 	if (last_pass && lamp->la->shadowmap_type == LA_SHADMAP_VARIANCE) {
 		GPU_shader_unbind();
 		glDisable(GL_SCISSOR_TEST);
-
+		glDisable(GL_CULL_FACE);
 		/* Bluring does not work well for the virtual cubemap */
-		if (lamp->type != LA_LOCAL)
+		if (lamp->type != LA_LOCAL && lamp->la->glsl_flags & LA_GLSL_SOFT_SHADOW)
 			GPU_framebuffer_blur(lamp->fb, lamp->tex, lamp->blurfb, lamp->blurtex);
 	}
 

@@ -729,9 +729,16 @@ class DATA_PT_shadow_game(DataButtonsPanel, Panel):
         col.label("Quality:")
         col = layout.column(align=True)
         col.prop(lamp, "shadow_buffer_size", text="Size")
-        col.prop(lamp, "shadow_buffer_bias", text="Bias")
+        row = col.row(align=True)
+        row.prop(lamp, "shadow_buffer_bias", text="Bias")
         if lamp.ge_shadow_buffer_type == "VARIANCE":
-            col.prop(lamp, "shadow_buffer_bleed_bias", text="Bleed Bias")
+            row.prop(lamp, "shadow_buffer_bleed_bias", text="Bleed Bias")
+            row = col.row()
+            row.prop(lamp, "glsl_use_soft_shadow")
+            row.prop(lamp, "glsl_use_low_precision")
+
+        row = col.row()
+        row.prop(lamp, "glsl_use_ff_culling")
 
         if lamp.type == 'SUN':
             col = layout.column()

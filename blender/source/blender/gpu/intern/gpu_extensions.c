@@ -677,7 +677,7 @@ GPUTexture *GPU_texture_create_depth(int w, int h, char err_out[256])
 /**
  * A shadow map for VSM needs two components (depth and depth^2)
  */
-GPUTexture *GPU_texture_create_vsm_shadow_map(int w, int h, char err_out[256])
+GPUTexture *GPU_texture_create_vsm_shadow_map(int w, int h, int highp, char err_out[256])
 {
 	GPUTexture *tex = GPU_texture_create_nD(w, h, 2, NULL, 0, err_out);
 
@@ -685,7 +685,10 @@ GPUTexture *GPU_texture_create_vsm_shadow_map(int w, int h, char err_out[256])
 		/* Now we tweak some of the settings */
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, w, h, 0, GL_RG, GL_FLOAT, NULL);
+		if (highp)
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, w, h, 0, GL_RG, GL_FLOAT, NULL);
+		else
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16, w, h, 0, GL_RG, GL_UNSIGNED_SHORT, NULL);
 
 		GPU_texture_unbind(tex);
 	}
