@@ -43,7 +43,6 @@
 #include "KX_PolygonMaterial.h"
 #include "KX_BlenderMaterial.h"
 #include "KX_RayCast.h"
-#include "KX_IPhysicsController.h"
 #include "KX_Light.h"
 
 #include "PHY_IPhysicsEnvironment.h"
@@ -266,7 +265,7 @@ void GPC_RenderTools::applyTransform(RAS_IRasterizer* rasty,double* oglmatrix,in
 
 			KX_Scene* kxscene = (KX_Scene*) m_auxilaryClientInfo;
 			PHY_IPhysicsEnvironment* physics_environment = kxscene->GetPhysicsEnvironment();
-			KX_IPhysicsController* physics_controller = gameobj->GetPhysicsController();
+			PHY_IPhysicsController* physics_controller = gameobj->GetPhysicsController();
 			
 			KX_GameObject *parent = gameobj->GetParent();
 			if (!physics_controller && parent)
