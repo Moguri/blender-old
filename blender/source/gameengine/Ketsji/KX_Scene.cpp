@@ -62,6 +62,7 @@
 #include "SCA_IScene.h"
 
 #include "RAS_IRasterizer.h"
+#include "RAS_ICanvas.h"
 #include "RAS_BucketManager.h"
 
 #include "FloatValue.h"
@@ -1694,10 +1695,9 @@ RAS_MaterialBucket* KX_Scene::FindBucket(class RAS_IPolyMaterial* polymat, bool 
 
 
 void KX_Scene::RenderBuckets(const MT_Transform & cameratransform,
-                             class RAS_IRasterizer* rasty,
-                             class RAS_IRenderTools* rendertools)
+                             class RAS_IRasterizer* rasty)
 {
-	m_bucketmanager->Renderbuckets(cameratransform,rasty,rendertools);
+	m_bucketmanager->Renderbuckets(cameratransform,rasty);
 	KX_BlenderMaterial::EndFrame();
 }
 
