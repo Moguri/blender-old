@@ -3270,6 +3270,7 @@ static RNAProcessItem PROCESS_ITEMS[] = {
 	{"rna_sculpt_paint.c", NULL, RNA_def_sculpt_paint},
 	{"rna_sensor.c", "rna_sensor_api.c", RNA_def_sensor},
 	{"rna_sequencer.c", "rna_sequencer_api.c", RNA_def_sequencer},
+	{"rna_shader.c", NULL, RNA_def_shader},
 	{"rna_smoke.c", NULL, RNA_def_smoke},
 	{"rna_space.c", NULL, RNA_def_space},
 	{"rna_speaker.c", NULL, RNA_def_speaker},
